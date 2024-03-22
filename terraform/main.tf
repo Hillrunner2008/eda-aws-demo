@@ -8,7 +8,7 @@ resource "aws_instance" "spring_app_instance" {
   key_name      = "ansible_demo"
 
   subnet_id              = "subnet-389ffc02"
-  vpc_security_group_ids = ["vpc-60c76505"]
+  vpc_security_group_ids = ["sg-06df0f2fd51719fc8"]
 
   tags = {
     Name = "spring-app-${var.git_sha}"
