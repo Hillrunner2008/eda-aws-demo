@@ -1,0 +1,32 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+    - name: Install SDKMAN
+      shell: |
+        curl -s "https://get.sdkman.io" | bash
+        source "$HOME/.sdkman/bin/sdkman-init.sh"
+        sdk version
+      args:
+        executable: /bin/bash
+      become_user: ec2-user
+      ignore_errors: yes
+
+    - name: Install Java with SDKMAN
+      shell: |
+        source "$HOME/.sdkman/bin/sdkman-init.sh"
+        sdk install java 11.0.2-open
+      args:
+        executable: /bin/bash
+      become_user: ec2-user
+      ignore_errors: yes
+
+    - name: Copy JAR file to target
+      copy:
+        src: "{{ playbook_dir }}/target/eda-demo.jar"
+        dest: "/home/ec2-user/eda-demo.jar"
+
+    - name: Execute JAR file
+      shell: "java -jar /home/ec2-user/eda-demo.jar > application.log 2>&1 &"
+      become: true
+      become_user: ec2-user
