@@ -1,0 +1,24 @@
+- name: webhook.site events
+  hosts: localhost
+  sources:
+    - name: Webhook.site POSTs as events
+      ansible.eda.webhook:
+        port: 5001
+        host: 0.0.0.0
+      filters:
+        - cloin.eda.poster:
+            webhook_url: https://webhook.site/2124fed4-1a77-49f2-9eb7-10b53a874518
+
+  rules:
+    - name: R1 - New webhook.site POST with content
+      condition: |
+        event.content.key == "value"
+      action:
+        debug:
+
+    - name: R2 - Catch high priority incidents
+      condition: |
+        event.payload.sys_class_name == "incident" and 
+        event.payload.impact < 3
+      action:
+        debug:

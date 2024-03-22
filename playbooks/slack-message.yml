@@ -1,0 +1,20 @@
+---
+- name: Send slack message
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  vars:
+      token:
+      msg:
+      username:
+      channel:
+
+  tasks:
+
+  - name: Send notification message via Slack
+    community.general.slack:
+      token: "{{ token }}"
+      msg: "{{ msg }}"
+      username: "{{ username }}"
+      channel: "{{ channel }}"

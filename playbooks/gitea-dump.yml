@@ -1,0 +1,13 @@
+---
+- name: dump event
+  hosts: localhost
+  connection: local
+
+  tasks:
+  - name: dump payload
+    debug:
+      var: event.payload
+
+  - name: dump meta
+    debug:
+      var: event.meta

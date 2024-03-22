@@ -1,0 +1,38 @@
+- name: webhook.site events
+  hosts: localhost
+  sources:
+    - name: Webhook.site POSTs as events
+      cloin.eda.webhooksite:
+        token: "{{ source_token }}"
+        interval: 10
+        skip_first_poll: true
+      filters:
+         - cloin.eda.poster:
+             webhook_url: "https://webhook.site/6a6c1a53-a9b3-42ea-b5df-cfd8e05cea2f"
+
+  rules:
+    - name: R1 - New webhook.site POST with content
+      condition: |
+        event.content.key == "value"
+      action:
+        debug:
+
+    - name: R2 - New/updated top priority Incident (ServiceNow)
+      condition: |
+        event.content.sys_class_name == "incident" and 
+        event.content.impact == "1"
+      action:
+        debug:
+
+    - name: R3 - Catalog request approved (ServiceNow)
+      condition: |
+        event.content.sys_class_name == "sc_request" and 
+        event.content.approval == "approved"
+      action:
+        debug:
+
+    - name: R4 - Catch all others
+      condition: |
+        event.content is defined
+      action:
+        debug:

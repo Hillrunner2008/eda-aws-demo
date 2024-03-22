@@ -1,0 +1,13 @@
+- name: Golfball events
+  hosts: localhost
+  sources:
+    - kubealex.eda.mqtt:
+        host: "{{ host}}"
+        port: "{{ port}}"
+        topic: "{{ topic }}"
+
+  rules:
+    - name: New golfball high velocity event
+      condition: event.data > 8
+      action:
+        debug:

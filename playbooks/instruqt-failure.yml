@@ -1,0 +1,84 @@
+---
+- name: Instruqt sandbox failure
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    slack_token:
+    slack_username:
+    slack_channel:
+    api_url:
+    api_key: 
+    track_id: 
+    timestamp: 
+    participant_id:
+    slack_alert: true
+    
+    # This graphql query takes the track ID and returns track details (title, developers, etc.)
+    graphql_query: |
+      {
+        "query": "query {
+          track(trackID: \"{{ track_id }}\") {
+            slug
+            title
+            permalink
+            developers {
+              profile {
+                display_name
+              }
+            }
+            statistics(filterDevelopers: true)  {
+              average_review_score
+            }
+          }
+        }"
+      }
+
+  tasks:
+    - name: Query track details
+      ansible.builtin.uri:
+        url: "{{ api_url }}"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ api_key }}"
+          Content-Type: "application/json"
+        body: "{{ graphql_query | regex_replace('\n', ' ') }}"
+          # Why regex_replace? GraphQL expects queries to be a single line
+          # but single-line GraphQL queries aren't very readable
+        body_format: json
+        return_content: true
+      register: response
+
+    - name: Extract developer names
+      ansible.builtin.set_fact:
+        developer_names: "{{ response.json.data.track.developers | map(attribute='profile.display_name') | list }}"
+
+    - name: Convert timestamp string to datetime, subtract 20 minutes, and URL encode it
+      ansible.builtin.command: |
+        python -c "from datetime import datetime, timedelta; from urllib.parse import quote; dt = datetime.strptime('{{ timestamp[:-4] }}', '%Y-%m-%dT%H:%M:%S.%f') - timedelta(minutes=20); print(quote(dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')))"
+      register: cmd
+    
+    - name: Set the new timestamp
+      ansible.builtin.set_fact:
+        new_timestamp: "{{ cmd.stdout }}"
+
+    - name: Set message content
+      ansible.builtin.set_fact:
+        message_content: |
+          :alarm_flash: *Instruqt FAILURE* :alarm_flash:
+          ------------------------
+          *Track:* <https://play.instruqt.com{{ response.json.data.track.permalink }}|{{ response.json.data.track.title }}> (<https://play.instruqt.com/manage{{ response.json.data.track.permalink }}/dashboard/logs?participantId={{ participant_id }}&since={{ new_timestamp }}|*_incident logs_*>)
+          *Slug:* {{ response.json.data.track.slug }}
+          *Developer(s):* {{ developer_names | join(', ') }}
+
+    - name: Debug
+      ansible.builtin.debug:
+        var: message_content
+
+    - name: Send notification message via Slack
+      when: slack_alert
+      community.general.slack:
+        token: "{{ slack_token }}"
+        username: "{{ slack_username }}"
+        channel: "{{ slack_channel }}"
+        msg: "{{ message_content }}"

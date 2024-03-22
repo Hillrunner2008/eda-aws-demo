@@ -1,0 +1,82 @@
+---
+- name: New positive review on Instruqt track
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    slack_token:
+    slack_username:
+    slack_channel:
+    api_url:
+    api_key: 
+    track_id:
+    content:
+    slack_alert: true
+    
+    # This graphql query takes the track ID and returns the track slug and track developer names
+    graphql_query: |
+      {
+        "query": "query {
+          track(trackID: \"{{ track_id }}\") {
+            slug
+            title
+            permalink
+            developers {
+              profile {
+                display_name
+              }
+            }
+            statistics(filterDevelopers: true)  {
+              average_review_score
+            }
+          }
+        }"
+      }
+
+  tasks:
+    - name: Query track details
+      ansible.builtin.uri:
+        url: "{{ api_url }}"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ api_key }}"
+          Content-Type: "application/json"
+        body: "{{ graphql_query | regex_replace('\n', ' ') }}"
+          # Why regex_replace? GraphQL expects queries to be a single line
+          # but single-line GraphQL queries aren't very readable
+        body_format: json
+        return_content: true
+      register: response
+
+    - name: Extract developer names
+      ansible.builtin.set_fact:
+        developer_names: "{{ response.json.data.track.developers | map(attribute='profile.display_name') | list }}"
+
+    - name: Test content length
+      ansible.builtin.set_fact:
+        is_long_enough: "{{ content | length > 3 }}"
+
+    - name: Set message content
+      ansible.builtin.set_fact:
+        message_content: |
+          :clapclap: *Instruqt positive review* :clapclap:
+          ------------------------
+          *Track:* <https://play.instruqt.com{{ response.json.data.track.permalink }}|{{ response.json.data.track.title }}> (<https://play.instruqt.com{{ response.json.data.track.permalink }}/editor/happiness|*_Avg. score: {{ response.json.data.track.statistics.average_review_score | round(2, 'common') }}_*>)
+          *Slug:* {{ response.json.data.track.slug }}
+          *Developer(s):* {{ developer_names | join(', ') }}
+          *Review:* {{ content }}
+        
+    - name: Print review
+      ansible.builtin.debug:
+        var: message_content
+
+    - name: Send notification message via Slack
+      when: 
+        - slack_alert
+        - is_long_enough
+      community.general.slack:
+        token: "{{ slack_token }}"
+        username: "{{ slack_username }}"
+        channel: "{{ slack_channel }}"
+        msg: "{{ message_content }}"
+

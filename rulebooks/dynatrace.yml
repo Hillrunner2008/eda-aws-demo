@@ -1,0 +1,56 @@
+---
+- name: Catch Dynatrace Problems
+  hosts: all
+  sources:
+    - dynatrace.event_driven_ansible.dt_esa_api:
+        dt_api_host: "{{ dt_api_host }}"
+        dt_api_token: "{{ dt_api_token }}"
+        delay: 10
+
+  rules:
+
+    # - name: Problem payload Dynatrace for CPU issue
+    #   condition: event.title is match("CPU saturation")
+    #   action:
+    #     run_job_template:
+    #       name: "Remediate CPU saturation issue"
+    #       organization: "Default"
+
+    - name: SwingSight dispatch RangeRoamer
+      condition: |
+        event.title == "Too many golf balls" 
+      action:
+        run_job_template:
+          name: "SwingSight | Dispatch RangeRoamer"
+          organization: Default
+
+    - name: SwingSight request LATENCY
+      condition: |
+        event.title == "Http monitor performance threshold violation" 
+      action:
+        run_job_template:
+          name: "SwingSight | Configure proxy"
+          organization: Default
+          job_args:
+            extra_vars:
+              disable_proxy: false
+              create_toxic: false
+              disable_toxic: true
+                
+    - name: SwingSight OUTAGE
+      condition: |
+        event.title == "Http monitor global outage" 
+      action:
+        run_job_template:
+          name: "SwingSight | Configure proxy"
+          organization: Default
+          job_args:
+            extra_vars:
+              disable_proxy: false
+              create_toxic: false
+              disable_toxic: true
+
+    - name: Catch all remaining
+      condition: event.meta is defined
+      action:
+        debug:

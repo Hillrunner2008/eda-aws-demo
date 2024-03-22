@@ -1,0 +1,75 @@
+- name: Instruqt events on SQS
+  hosts: localhost
+  sources:
+    - ansible.eda.aws_sqs_queue:
+        access_key: "{{ aws_access_key }}"
+        secret_key: "{{ aws_secret_key }}"
+        region: "{{ region }}"
+        name: "{{ queue_name }}"
+        delay_seconds: "{{ delay_seconds }}"
+
+
+  rules:
+
+    - name: R1 - Instruqt - SANDBOX FAILURE
+      condition: event.body.headers.application == "instruqt" and event.body.body.type == "sandbox.failed"
+      action:
+        run_job_template:
+          name: InstruqtSandboxFailure
+          organization: Default
+          job_args:
+            extra_vars:
+              track_id: "{{ event.body.body.track_id }}"
+              timestamp: "{{ event.body.body.timestamp }}"
+              participant_id: "{{ event.body.body.participant_id }}"
+
+    - name: R2 - Instruqt - ServiceNow sandbox CREATED
+      condition: event.body.headers.application == "instruqt" and event.body.body.type == "sandbox.created" and event.body.body.track_slug == "getting-started-servicenow-automation"
+      action:
+        debug:
+
+    - name: R3 - Instruqt - ServiceNow sandbox STOPPED
+      condition: event.body.headers.application == "instruqt" and event.body.body.type == "sandbox.cleaned" and event.body.body.track_slug == "getting-started-servicenow-automation"
+      action:
+        debug:
+
+    - name: R4 - Instruqt - Positive review
+      condition: event.body.headers.application == "instruqt" and event.body.body.type == "review.updated" and event.body.body.score == 5
+      action:
+        run_job_template:
+          name: InstruqtPositiveReview
+          organization: Default
+          job_args:
+            extra_vars:
+              track_id: "{{ event.body.body.track_id }}"
+              content: "{{ event.body.body.content }}"
+
+    - name: R5 - Datadog - catch all events
+      condition: event.body is search("datadog")
+      action:
+        debug:
+
+    # - name: R6 - Instruqt - Negative review
+    #   condition: event.body.headers.application == "instruqt" and event.body.body.type == "review.updated" and event.body.body.score < 3
+    #   action:
+    #     run_job_template:
+    #       name: InstruqtNegativeReview
+    #       organization: Default
+    #       job_args:
+    #         extra_vars:
+    #           short_description: "Instruqt negative review"
+    #           description: |
+    #             Comments: {{ event.body.body.content }}
+    #             Instruqt user ID: {{ event.body.body.user_id }}
+    #             Instruqt track ID: {{ event.body.body.track_id }}
+    #             Received: {{ event.meta.received_at }}
+
+    # - name: R7 - Instruqt - catch all instruqt events
+    #   condition: event.body.headers.application == "instruqt"
+    #   action:
+    #     debug:
+
+    # - name: R8 - Instruqt - catch all events
+    #   condition: event.body is defined
+    #   action:
+    #     debug:
